@@ -144,6 +144,7 @@ class Stage2_TrAdaBoostR2:
         source_weight_sum= np.sum(sample_weight[:-self.sample_size[-1]]) / np.sum(sample_weight)
         target_weight_sum = np.sum(sample_weight[-self.sample_size[-1]:]) / np.sum(sample_weight)
 
+        # targetのみsample_weightを更新している
         if not iboost == self.n_estimators - 1:
             sample_weight[-self.sample_size[-1]:] *= np.power(
                     beta,
@@ -224,6 +225,7 @@ class TwoStageTrAdaBoostR2:
         elif np.array(self.sample_size).sum() != X.shape[0]:
             raise ValueError("Input error: the specified sample size does not equal to the input size")
 
+        # sample_size = [sourceのsize, targetのsize]
 
         X_source = X[:-self.sample_size[-1]]
         y_source = y[:-self.sample_size[-1]]
@@ -233,6 +235,7 @@ class TwoStageTrAdaBoostR2:
         self.models_ = []
         self.errors_ = []
         for istep in range(self.steps):
+            # 普通にAdaBoost.R2にかける
             model = Stage2_TrAdaBoostR2(self.base_estimator,
                                         sample_size = self.sample_size,
                                         n_estimators = self.n_estimators,
