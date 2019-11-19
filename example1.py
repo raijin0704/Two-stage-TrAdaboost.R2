@@ -9,6 +9,7 @@ from sklearn.ensemble import AdaBoostRegressor
 from sklearn.metrics import mean_squared_error
 from TwoStageTrAdaBoostR2 import TwoStageTrAdaBoostR2 # import the two-stage algorithm
 from SimpleTrAdaBoostR2 import SimpleTrAdaBoostR2
+from SimpleTrAdaBoostRT import SimpleTrAdaBoostRT
 ##=============================================================================
 
 #                                Example 1
@@ -121,11 +122,21 @@ def experiment_main(count):
     regr_1.fit(X, y)
     y_pred1 = regr_1.predict(x_target_test)
 
+
+    # Sourceデータもtargetデータと同じように重みを更新するシンプルなTrAdaBoostR2
     regr_2 = SimpleTrAdaBoostR2(DecisionTreeRegressor(max_depth=6),
                         n_estimators = n_estimators, sample_size = sample_size, 
                         random_state = random_state)
     regr_2.fit(X, y)
     y_pred2 = regr_2.predict(x_target_test)
+
+
+    # sourceデータ1つ1つの誤差が閾値以下なら誤差を0にするTrAdaBoostRT
+    regr_3 = SimpleTrAdaBoostRT(DecisionTreeRegressor(max_depth=6),
+                        n_estimators = n_estimators, sample_size = sample_size, 
+                        random_state = random_state)
+    regr_3.fit(X, y)
+    y_pred3 = regr_3.predict(x_target_test)
 
     # 4.3 As comparision, use AdaBoostR2 without transfer learning
     #==============================================================================
@@ -135,25 +146,30 @@ def experiment_main(count):
     regr_0.fit(x_target_train, y_target_train)
     y_pred0 = regr_0.predict(x_target_test)
 
-    # 4.4 Plot the results
-    plt.figure()
-    plt.scatter(x_target_train, y_target_train, c="k", label="target_train")
-    plt.plot(x_target_test, y_target_test, c="b", label="target_test", linewidth=0.5)
-    plt.plot(x_target_test, y_pred1, c="r", label="TwoStageTrAdaBoostR2", linewidth=2)
-    plt.plot(x_target_test, y_pred2, c="g", label="SimpleTrAdaBoostR2", linewidth=2)
-    plt.plot(x_target_test, y_pred0, c="y", label="AdaBoostR2", linewidth=2)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title("Two-stage Transfer Learning Boosted Decision Tree Regression")
-    plt.legend()
-    plt.savefig("result/"+str(count)+"-result.png")
-    # 4.5 Calculate mse
+    # 4.4 Calculate mse
     mse_twostageboost = mean_squared_error(y_target_test, y_pred1)   
-    mse_simpleboost = mean_squared_error(y_target_test, y_pred2)   
+    mse_simpleboost = mean_squared_error(y_target_test, y_pred2)
+    mse_simpleboostRT = mean_squared_error(y_target_test, y_pred3)   
     mse_adaboost = mean_squared_error(y_target_test, y_pred0)
     print("MSE of regular AdaboostR2:", mse_adaboost)
     print("MSE of TwoStageTrAdaboostR2:", mse_twostageboost)
     print("MSE of SimpleTrAdaboostR2:", mse_simpleboost)
+    print("MSE of SimpleTrAdaboostRT:", mse_simpleboostRT)
+
+    # 4.5 Plot the results
+    plt.figure()
+    plt.scatter(x_target_train, y_target_train, c="k", label="target_train")
+    plt.plot(x_target_test, y_target_test, c="b", label="target_test", linewidth=0.5)
+    plt.plot(x_target_test, y_pred1, c="r", label="TwoTrR2:{:.3f}".format(mse_twostageboost), linewidth=2)
+    plt.plot(x_target_test, y_pred2, c="g", label="TrR2:{:.3f}".format(mse_simpleboost), linewidth=2)
+    plt.plot(x_target_test, y_pred3, c="m", label="TrRT:{:.3f}".format(mse_simpleboostRT), linewidth=2)
+    plt.plot(x_target_test, y_pred0, c="y", label="AdaBoostR2:{:.3f}".format(mse_adaboost), linewidth=2)
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.title("Transfer Learning Boosted Decision Tree Regression")
+    plt.legend()
+    plt.savefig("result/"+str(count)+"-result.png")
+
 
     #==============================================================================
 
