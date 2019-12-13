@@ -144,11 +144,11 @@ class SimpleTrAdaBoostR2:
         target_weight_sum = np.sum(sample_weight[-self.sample_size[-1]:]) / np.sum(sample_weight)
 
         if not iboost == self.n_estimators - 1:
-            # targetのsample_weightを更新
+            # targetのsample_weightを更新（当たっていれば重みを小さく、外れていれば重みを大きく）
             sample_weight[-self.sample_size[-1]:] *= np.power(
                     beta,
                     (1. - error_vect[-self.sample_size[-1]:]) * self.learning_rate)
-            # sourceのsample_weight更新（お試し）
+            # sourceのsample_weight更新（当たっていれば重みを大きく、外れていれば重みを小さく）
             sample_weight[:-self.sample_size[-1]] *= np.power(
                     beta,
                     -(1. - error_vect[:-self.sample_size[-1]]) * self.learning_rate)

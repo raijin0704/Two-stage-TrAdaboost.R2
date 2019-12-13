@@ -158,7 +158,7 @@ class SimpleTrAdaBoostRT:
                     (1. - error_vect[-self.sample_size[-1]:]) * self.learning_rate)
             
             # sourceのsample_weight更新
-            # 閾値より誤差が大きい場合は転移に不要と考え、誤差を0にする
+            # 閾値より誤差が大きい場合は転移に不要と考え、重みを0にする
 
             if self.threshold_given_F == False:
                 # estimator_vectの中央値を閾値にする？
