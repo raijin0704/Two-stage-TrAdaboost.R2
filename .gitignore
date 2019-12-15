@@ -1,3 +1,10 @@
+# environment
 **__pycache__**
 **.png
 *.vscode
+**.ipynb_checkpoints
+
+# dataset
+**auto-mpg
+**concrete_compressive
+**housing
