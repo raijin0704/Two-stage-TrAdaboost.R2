@@ -4,6 +4,7 @@ concrete compressiveを用いて実験
 """
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeRegressor
 import matplotlib.pyplot as plt
 from sklearn.ensemble import AdaBoostRegressor
@@ -47,7 +48,7 @@ def _split_dataset(df, split_feature):
     return low, medium, high
 
 
-def experiment_main(count):
+def experiment_main(count, idx_target, experiment_result):
     # データ取得
     _, low, medium, high = make_dataset()
 
@@ -131,10 +132,45 @@ def experiment_main(count):
         print("--------------------------------")
 
 
+        # 結果の保存
+        idx_target[count*3+idx] = name_list[idx]
+        experiment_result.append([mse_adaboost, mse_twostageboost,
+                                    mse_simpleboost, mse_simpleboostRT])
+
+    return idx_target, experiment_result
+
 
 if __name__ == "__main__":
-    for count in range(1,6):
+    # 実験
+    idx_target = {}
+    experiment_result = []
+    for count in range(20):
         print("--------------------------------")
         print("experiment : ", count)
         print("--------------------------------")
-        experiment_main(count)
+        idx_target, experiment_result = experiment_main(count, idx_target, experiment_result)
+    
+    
+    df_result = pd.DataFrame(experiment_result, columns=["AdaBoost", "Two-StageTrAdaBoost", "SimpleTrAdaBoostR2", "SimpleTrAdaBoostRT"])
+    experiment_n = len(df_result)
+    df_result.to_csv("./result/concrete_compressive_mse_n%s.csv" %experiment_n)
+
+    # 実験結果の図
+    result_mean = df_result.mean(axis=0)
+    result_std = df_result.std(axis=0)
+    plt.figure(figsize=(10,5))
+    plt.bar(np.arange(len(result_mean)), result_mean, yerr=result_std, tick_label=result_mean.index, ecolor="black", width=0.5)
+    plt.title("Concrete Compressive MSE  n=%s" %len(df_result))
+    plt.savefig("./result/concrete_compressive_mse_compare_n%s.png" %experiment_n)
+
+    # targetごとの結果の違い
+    df_result["target"] = df_result.reset_index().iloc[:,0].apply(lambda x: idx_target[x])
+    for target_group in ["low", "medium", "high"]:
+        df_target = df_result[df_result["target"]==target_group]
+        result_mean = df_target.mean(axis=0)
+        result_std = df_target.std(axis=0)
+        plt.figure(figsize=(10,5))
+        plt.bar(np.arange(len(result_mean)), result_mean, yerr=result_std, tick_label=result_mean.index, ecolor="black", width=0.5)
+        plt.title("Concrete Compressive MSE (%s)  n=%s" %(target_group, len(df_target)))
+        experiment_n = len(df_target)
+        plt.savefig("./result/concrete_compressive_mse_compare_%s_n%s.png" %(target_group, experiment_n))
