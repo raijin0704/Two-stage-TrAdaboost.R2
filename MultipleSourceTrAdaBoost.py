@@ -261,8 +261,10 @@ class MultipleSourceTrAdaBoostR2:
 if __name__ == "__main__":
     sample_size = [50, 100, 75, 15]
     X = np.random.rand(sum(sample_size), 5)
+    y1 = np.where(np.sum(X, axis=1)>2, 1,0)
     y = np.random.randint(0, 2, size=sum(sample_size))
     clf = MultipleSourceTrAdaBoostR2(DecisionTreeRegressor(max_depth=6),
                             n_estimators = 100, sample_size = sample_size, 
                             random_state = np.random.RandomState(1))
-    clf.fit(X, y)
+    clf.fit(X, y1)
+    clf.predict(X)
