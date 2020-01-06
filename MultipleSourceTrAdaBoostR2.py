@@ -57,7 +57,7 @@ class MultipleSourceTrAdaBoostR2:
         # Clear any previous fit results
         self.estimators_ = []
         self.estimator_weights_ = np.zeros(self.n_estimators, dtype=np.float64)
-        self.estimator_errors_ = np.ones(self.n_estimators, dtype=np.float64)
+        estimator_errors_ = np.ones(self.n_estimators, dtype=np.float64)
         self.accept_source = np.full(self.n_estimators, -1)
 
         for iboost in range(self.n_estimators): # this for loop is sequential and does not support parallel(revison is needed if making parallel)
@@ -73,9 +73,9 @@ class MultipleSourceTrAdaBoostR2:
             before_sum_size = 0
             for idx, isource in enumerate(self.sample_size[:-1]):
                 # 対象のsource以外のsourceデータを除く
-                X_isource = np.concatenate([X[before_sum_size:before_sum_size+isource], X[-sample_size[-1]:]])
-                y_isource = np.concatenate([y[before_sum_size:before_sum_size+isource], y[-sample_size[-1]:]])
-                sample_weight_isource = np.concatenate([sample_weight[before_sum_size:before_sum_size+isource], sample_weight[-sample_size[-1]:]])
+                X_isource = np.concatenate([X[before_sum_size:before_sum_size+isource], X[-self.sample_size[-1]:]])
+                y_isource = np.concatenate([y[before_sum_size:before_sum_size+isource], y[-self.sample_size[-1]:]])
+                sample_weight_isource = np.concatenate([sample_weight[before_sum_size:before_sum_size+isource], sample_weight[-self.sample_size[-1]:]])
                 # 弱学習器の作成と予測誤差の計算
                 eachstep_estimator_error[idx], error_vect, weak_estimator = self._multipleSourceTrAdaBoostR2(
                         iboost,
@@ -89,25 +89,25 @@ class MultipleSourceTrAdaBoostR2:
             # 最も誤差の小さいsourceからの弱学習器を採用する
             self.accept_source[iboost] = np.argmin(eachstep_estimator_error)
             self.estimators_.append(weak_estimators[np.argmin(eachstep_estimator_error)])
-            self.estimator_errors_[iboost] = eachstep_estimator_error[np.argmin(eachstep_estimator_error)]
+            estimator_errors_[iboost] = eachstep_estimator_error[np.argmin(eachstep_estimator_error)]
             
             # 
-            if self.estimator_errors_[iboost] <= 0:
+            if estimator_errors_[iboost] <= 0:
                 # Stop if fit is perfect
                 print("fit is prefect")
                 break
 
             # 予測誤差が0.5以上ならその弱学習器は不採用
-            elif self.estimator_errors_[iboost] >= 0.5:
+            elif estimator_errors_[iboost] >= 0.5:
                 # Discard current estimator only if it isn't the only one
                 if len(self.estimators_) > 1:
                     self.estimators_.pop(-1)
-                    # self.estimator_errors_[iboost] = 
+                    # estimator_errors_[iboost] = -1
 
             # 予測誤差が0<ε<0.5なら続行
             else:
                 # αを計算
-                alpha = 0.5 * np.log((1-self.estimator_errors_[iboost])/self.estimator_errors_[iboost])
+                alpha = 0.5 * np.log((1-estimator_errors_[iboost])/estimator_errors_[iboost])
 
             # sample_weight更新
             # target
@@ -129,7 +129,7 @@ class MultipleSourceTrAdaBoostR2:
                 # Normalize
                 sample_weight /= sample_weight_sum
             
-            # sample_weight, estimator_weight, estimator_error = self._multipleSourceTrAdaBoostR2(
+            # sample_weight, estimator_weight, estimator_error = self._multipleSourceTrAdaBoost(
             #         iboost,
             #         X, y,
             #         sample_weight)
@@ -138,7 +138,7 @@ class MultipleSourceTrAdaBoostR2:
             #     break
 
             # self.estimator_weights_[iboost] = estimator_weight
-            # self.estimator_errors_[iboost] = estimator_error
+            # estimator_errors_[iboost] = estimator_error
 
             # # Stop if error is zero
             # if estimator_error == 0:
@@ -153,6 +153,8 @@ class MultipleSourceTrAdaBoostR2:
             # if iboost < self.n_estimators - 1:
             #     # Normalize
             #     sample_weight /= sample_weight_sum
+        # ε>0.5で採用されなかったイテレーションの予測誤差を除く
+        self.estimator_errors_ = estimator_errors_[estimator_errors_<0.5]
         return self
 
 
@@ -163,9 +165,14 @@ class MultipleSourceTrAdaBoostR2:
 
         ## using sampling method to account for sample_weight as discussed in Drucker's paper
         # Weighted sampling of the training set with replacement
+        # 累積度数cdfを計算
         cdf = np.cumsum(sample_weight_isource)
         cdf /= cdf[-1]
+        # すべての要素が[0,1)の一様分布に従うランダムな値の長さ=データ数のベクトルを作成
         uniform_samples = self.random_state.random_sample(X_isource.shape[0])
+        # 累積確率cdfを全てのuniform_samplesの要素で二分探索する
+        # つまり、n=データ数でブーストラップサンプリングをしている
+        # が、重みが大きいデータの方が選択される確率が高い
         bootstrap_idx = cdf.searchsorted(uniform_samples, side='right')
         # searchsorted returns a scalar
         bootstrap_idx = np.array(bootstrap_idx, copy=False)
