@@ -320,6 +320,7 @@ class TwoStageTrAdaBoostR2:
         beta = self._beta_binary_search(istep, sample_weight, error_vect, stp = 1e-30)
 
         if not istep == self.steps - 1:
+            # sourceの重み更新
             sample_weight[:-self.sample_size[-1]] *= np.power(
                     beta,
                     (error_vect[:-self.sample_size[-1]]) * self.learning_rate)
@@ -340,10 +341,12 @@ class TwoStageTrAdaBoostR2:
         R = 1.
         beta = (L+R)/2
         sample_weight_ = copy.deepcopy(sample_weight)
+        # sourceの重みを一時的に更新=sample_weight_
         sample_weight_[:-n_target] *= np.power(
                     beta,
                     (error_vect[:-n_target]) * self.learning_rate)
         sample_weight_ /= np.sum(sample_weight_, dtype=np.float64)
+        # targetのsample_weight_の合計値を算出
         updated_weight_sum = np.sum(sample_weight_[-n_target:], dtype=np.float64)
 
         while np.abs(updated_weight_sum - theoretical_sum) > 0.01:
