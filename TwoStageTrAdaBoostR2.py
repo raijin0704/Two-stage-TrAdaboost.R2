@@ -190,7 +190,8 @@ class TwoStageTrAdaBoostR2:
                  fold = 5,
                  learning_rate = 1.,
                  loss = 'linear',
-                 random_state = np.random.mtrand._rand):
+                 random_state = np.random.mtrand._rand,
+                 binary_search_step = 1e-30):
         self.base_estimator = base_estimator
         self.sample_size = sample_size
         self.n_estimators = n_estimators
@@ -199,6 +200,7 @@ class TwoStageTrAdaBoostR2:
         self.learning_rate = learning_rate
         self.loss = loss
         self.random_state = random_state
+        self.binary_search_step = binary_search_step
 
 
     def fit(self, X, y, sample_weight=None):
@@ -317,7 +319,7 @@ class TwoStageTrAdaBoostR2:
             error_vect = 1. - np.exp(- error_vect)
 
         # Update the weight vector
-        beta = self._beta_binary_search(istep, sample_weight, error_vect, stp = 1e-30)
+        beta = self._beta_binary_search(istep, sample_weight, error_vect, self.binary_search_step)
 
         if not istep == self.steps - 1:
             sample_weight[:-self.sample_size[-1]] *= np.power(
