@@ -14,7 +14,7 @@ from sklearn.model_selection import KFold
 ################################################################################
 ## the second stage
 ################################################################################
-class Stage2_TrAdaBoostR2:
+class Multiple_Stage2_TrAdaBoostR2:
     def __init__(self,
                  base_estimator = DecisionTreeRegressor(max_depth=4),
                  sample_size = None,
@@ -24,6 +24,7 @@ class Stage2_TrAdaBoostR2:
                  random_state = np.random.mtrand._rand):
         self.base_estimator = base_estimator
         self.sample_size = sample_size
+        self.n_sources = len(self.sample_size)-1
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.loss = loss
@@ -190,8 +191,7 @@ class TwoStageTrAdaBoostR2:
                  fold = 5,
                  learning_rate = 1.,
                  loss = 'linear',
-                 random_state = np.random.mtrand._rand,
-                 binary_search_step = 1e-30):
+                 random_state = np.random.mtrand._rand):
         self.base_estimator = base_estimator
         self.sample_size = sample_size
         self.n_estimators = n_estimators
@@ -200,7 +200,6 @@ class TwoStageTrAdaBoostR2:
         self.learning_rate = learning_rate
         self.loss = loss
         self.random_state = random_state
-        self.binary_search_step = binary_search_step
 
 
     def fit(self, X, y, sample_weight=None):
@@ -238,7 +237,7 @@ class TwoStageTrAdaBoostR2:
         self.errors_ = []
         for istep in range(self.steps):
             # 普通にAdaBoost.R2にかける
-            model = Stage2_TrAdaBoostR2(self.base_estimator,
+            model = Multiple_Stage2_TrAdaBoostR2(self.base_estimator,
                                         sample_size = self.sample_size,
                                         n_estimators = self.n_estimators,
                                         learning_rate = self.learning_rate, loss = self.loss,
@@ -252,7 +251,7 @@ class TwoStageTrAdaBoostR2:
             source_weight = sample_weight[:-self.sample_size[-1]]
             for train, test in kf.split(X_target):
                 sample_size = [self.sample_size[0], len(train)]
-                model = Stage2_TrAdaBoostR2(self.base_estimator,
+                model = Multiple_Stage2_TrAdaBoostR2(self.base_estimator,
                                         sample_size = sample_size,
                                         n_estimators = self.n_estimators,
                                         learning_rate = self.learning_rate, loss = self.loss,
@@ -319,10 +318,9 @@ class TwoStageTrAdaBoostR2:
             error_vect = 1. - np.exp(- error_vect)
 
         # Update the weight vector
-        beta = self._beta_binary_search(istep, sample_weight, error_vect, self.binary_search_step)
+        beta = self._beta_binary_search(istep, sample_weight, error_vect, stp = 1e-30)
 
         if not istep == self.steps - 1:
-            # sourceの重み更新
             sample_weight[:-self.sample_size[-1]] *= np.power(
                     beta,
                     (error_vect[:-self.sample_size[-1]]) * self.learning_rate)
@@ -343,12 +341,10 @@ class TwoStageTrAdaBoostR2:
         R = 1.
         beta = (L+R)/2
         sample_weight_ = copy.deepcopy(sample_weight)
-        # sourceの重みを一時的に更新=sample_weight_
         sample_weight_[:-n_target] *= np.power(
                     beta,
                     (error_vect[:-n_target]) * self.learning_rate)
         sample_weight_ /= np.sum(sample_weight_, dtype=np.float64)
-        # targetのsample_weight_の合計値を算出
         updated_weight_sum = np.sum(sample_weight_[-n_target:], dtype=np.float64)
 
         while np.abs(updated_weight_sum - theoretical_sum) > 0.01:

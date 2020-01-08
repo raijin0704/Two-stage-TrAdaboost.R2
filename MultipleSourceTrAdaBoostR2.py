@@ -1,5 +1,5 @@
 """
-MultipleSourceTrAdaBoost algorithm
+MultipleSourceTrAdaBoostR2 algorithm
 
 based on algorithm 3 in paper "Boosting for transfer learning with multiple sources".
 
@@ -7,14 +7,15 @@ based on algorithm 3 in paper "Boosting for transfer learning with multiple sour
 
 import numpy as np
 import copy
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
 
 
-class MultipleSourceTrAdaBoost:
+class MultipleSourceTrAdaBoostR2:
     def __init__(self,
-                 base_estimator = DecisionTreeClassifier(max_depth=4),
+                # ここを変えることで弱学習器を変更できる？
+                 base_estimator = DecisionTreeRegressor(max_depth=4),
                  sample_size = None,
                  n_estimators = 50,
                  learning_rate = 1.,
@@ -76,7 +77,7 @@ class MultipleSourceTrAdaBoost:
                 y_isource = np.concatenate([y[before_sum_size:before_sum_size+isource], y[-self.sample_size[-1]:]])
                 sample_weight_isource = np.concatenate([sample_weight[before_sum_size:before_sum_size+isource], sample_weight[-self.sample_size[-1]:]])
                 # 弱学習器の作成と予測誤差の計算
-                eachstep_estimator_error[idx], error_vect, weak_estimator = self._MultipleSourceTrAdaBoost(
+                eachstep_estimator_error[idx], error_vect, weak_estimator = self._multipleSourceTrAdaBoostR2(
                         iboost,
                         X_isource, y_isource,
                         sample_weight_isource)
@@ -128,7 +129,7 @@ class MultipleSourceTrAdaBoost:
                 # Normalize
                 sample_weight /= sample_weight_sum
             
-            # sample_weight, estimator_weight, estimator_error = self._MultipleSourceTrAdaBoost(
+            # sample_weight, estimator_weight, estimator_error = self._multipleSourceTrAdaBoost(
             #         iboost,
             #         X, y,
             #         sample_weight)
@@ -158,15 +159,20 @@ class MultipleSourceTrAdaBoost:
 
 
 
-    def _MultipleSourceTrAdaBoost(self, iboost, X_isource, y_isource, sample_weight_isource):
+    def _multipleSourceTrAdaBoostR2(self, iboost, X_isource, y_isource, sample_weight_isource):
 
         estimator = copy.deepcopy(self.base_estimator) # some estimators allow for specifying random_state estimator = base_estimator(random_state=random_state)
 
         ## using sampling method to account for sample_weight as discussed in Drucker's paper
         # Weighted sampling of the training set with replacement
+        # 累積度数cdfを計算
         cdf = np.cumsum(sample_weight_isource)
         cdf /= cdf[-1]
+        # すべての要素が[0,1)の一様分布に従うランダムな値の長さ=データ数のベクトルを作成
         uniform_samples = self.random_state.random_sample(X_isource.shape[0])
+        # 累積確率cdfを全てのuniform_samplesの要素で二分探索する
+        # つまり、n=データ数でブーストラップサンプリングをしている
+        # が、重みが大きいデータの方が選択される確率が高い
         bootstrap_idx = cdf.searchsorted(uniform_samples, side='right')
         # searchsorted returns a scalar
         bootstrap_idx = np.array(bootstrap_idx, copy=False)
@@ -265,7 +271,7 @@ if __name__ == "__main__":
     X = np.random.rand(sum(sample_size), 5)
     y1 = np.where(np.sum(X, axis=1)>2, 1,0)
     y = np.random.randint(0, 2, size=sum(sample_size))
-    clf = MultipleSourceTrAdaBoost(DecisionTreeClassifier(max_depth=6),
+    clf = MultipleSourceTrAdaBoostR2(DecisionTreeRegressor(max_depth=6),
                             n_estimators = 100, sample_size = sample_size, 
                             random_state = np.random.RandomState(1))
     clf.fit(X, y1)
