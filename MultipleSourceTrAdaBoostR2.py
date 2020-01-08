@@ -56,9 +56,9 @@ class MultipleSourceTrAdaBoostR2:
 
         # Clear any previous fit results
         self.estimators_ = []
-        self.estimator_weights_ = np.zeros(self.n_estimators, dtype=np.float64)
+        estimator_weights_ = np.zeros(self.n_estimators, dtype=np.float64)
         estimator_errors_ = np.ones(self.n_estimators, dtype=np.float64)
-        self.accept_source = np.full(self.n_estimators, -1)
+        accept_source = np.full(self.n_estimators, -1)
 
         for iboost in range(self.n_estimators): # this for loop is sequential and does not support parallel(revison is needed if making parallel)
             # Boosting step
@@ -77,7 +77,7 @@ class MultipleSourceTrAdaBoostR2:
                 y_isource = np.concatenate([y[before_sum_size:before_sum_size+isource], y[-self.sample_size[-1]:]])
                 sample_weight_isource = np.concatenate([sample_weight[before_sum_size:before_sum_size+isource], sample_weight[-self.sample_size[-1]:]])
                 # 弱学習器の作成と予測誤差の計算
-                eachstep_estimator_error[idx], error_vect, weak_estimator = self._multipleSourceTrAdaBoostR2(
+                eachstep_estimator_error[idx], error_vect, weak_estimator = self._MultipleSourceTrAdaBoostR2(
                         iboost,
                         X_isource, y_isource,
                         sample_weight_isource)
@@ -87,7 +87,7 @@ class MultipleSourceTrAdaBoostR2:
                 before_sum_size += isource
 
             # 最も誤差の小さいsourceからの弱学習器を採用する
-            self.accept_source[iboost] = np.argmin(eachstep_estimator_error)
+            accept_source[iboost] = np.argmin(eachstep_estimator_error)
             self.estimators_.append(weak_estimators[np.argmin(eachstep_estimator_error)])
             estimator_errors_[iboost] = eachstep_estimator_error[np.argmin(eachstep_estimator_error)]
             
@@ -103,19 +103,23 @@ class MultipleSourceTrAdaBoostR2:
                 if len(self.estimators_) > 1:
                     self.estimators_.pop(-1)
                     # estimator_errors_[iboost] = -1
+                    break
 
             # 予測誤差が0<ε<0.5なら続行
-            else:
-                # αを計算
-                alpha = 0.5 * np.log((1-estimator_errors_[iboost])/estimator_errors_[iboost])
+            # αを計算
+            alpha = 0.5 * np.log((1-estimator_errors_[iboost])/estimator_errors_[iboost])
+            # avoid overflow of np.log(1. / alpha)
+            if alpha < 1e-308:
+                alpha = 1e-308
+            estimator_weights_[iboost] = self.learning_rate * alpha
 
             # sample_weight更新
             # target
-            sample_weight[-self.sample_size[-1]:] *= np.exp(-alpha*error_vects[self.accept_source[iboost]][-self.sample_size[-1]:])
+            sample_weight[-self.sample_size[-1]:] *= np.exp(-alpha*error_vects[accept_source[iboost]][-self.sample_size[-1]:])
             # source
-            accept_source_idx = sum(self.sample_size[:self.accept_source[iboost]])
-            sample_weight[accept_source_idx:accept_source_idx+self.sample_size[self.accept_source[iboost]]] *= (
-                np.exp(alpha*error_vects[self.accept_source[iboost]][:-self.sample_size[-1]])
+            accept_source_idx = sum(self.sample_size[:accept_source[iboost]])
+            sample_weight[accept_source_idx:accept_source_idx+self.sample_size[accept_source[iboost]]] *= (
+                np.exp(alpha*error_vects[accept_source[iboost]][:-self.sample_size[-1]])
             )
 
             # normalize
@@ -153,13 +157,16 @@ class MultipleSourceTrAdaBoostR2:
             # if iboost < self.n_estimators - 1:
             #     # Normalize
             #     sample_weight /= sample_weight_sum
-        # ε>0.5で採用されなかったイテレーションの予測誤差を除く
+        # ループが途中で止まった場合、その途中までの結果のみ取り出す
+        # 反映されない部分はestimator_errors_[i]>=0.5(=0で止まったときはそのステップまで採用するからこの条件でok)
+        self.estimator_weights_ = estimator_weights_[estimator_errors_<0.5]
+        self.accept_source = accept_source[estimator_errors_<0.5]
         self.estimator_errors_ = estimator_errors_[estimator_errors_<0.5]
         return self
 
 
 
-    def _multipleSourceTrAdaBoostR2(self, iboost, X_isource, y_isource, sample_weight_isource):
+    def _MultipleSourceTrAdaBoostR2(self, iboost, X_isource, y_isource, sample_weight_isource):
 
         estimator = copy.deepcopy(self.base_estimator) # some estimators allow for specifying random_state estimator = base_estimator(random_state=random_state)
 
@@ -185,6 +192,15 @@ class MultipleSourceTrAdaBoostR2:
         # self.estimators_.append(estimator)  # add the fitted estimator
 
         error_vect = np.abs(y_predict - y_isource)
+        error_max = error_vect.max()
+
+        if error_max != 0.:
+            error_vect /= error_max
+
+        if self.loss == 'square':
+            error_vect **= 2
+        elif self.loss == 'exponential':
+            error_vect = 1. - np.exp(- error_vect)
         # あるsourceを使っての予測誤差ε
         estimator_error_isource = (
             sum(error_vect[-self.sample_size[-1]:] * sample_weight_isource[-self.sample_size[-1]:])
@@ -269,10 +285,9 @@ class MultipleSourceTrAdaBoostR2:
 if __name__ == "__main__":
     sample_size = [50, 100, 75, 15]
     X = np.random.rand(sum(sample_size), 5)
-    y1 = np.where(np.sum(X, axis=1)>2, 1,0)
-    y = np.random.randint(0, 2, size=sum(sample_size))
+    y = np.sum(X, axis=1)
     clf = MultipleSourceTrAdaBoostR2(DecisionTreeRegressor(max_depth=6),
                             n_estimators = 100, sample_size = sample_size, 
                             random_state = np.random.RandomState(1))
-    clf.fit(X, y1)
-    clf.predict(X)
+    clf.fit(X, y)
+    clf.predict(X[:15])
