@@ -112,8 +112,7 @@ class MultipleSourceTrAdaBoost:
             # avoid overflow of np.log(1. / alpha)
             if alpha < 1e-308:
                 alpha = 1e-308
-            # ???
-            estimator_weights_[iboost] = self.learning_rate * np.log(1./alpha)
+            estimator_weights_[iboost] = self.learning_rate * alpha
 
             # sample_weight更新
             # target
@@ -134,31 +133,7 @@ class MultipleSourceTrAdaBoost:
             if iboost < self.n_estimators - 1:
                 # Normalize
                 sample_weight /= sample_weight_sum
-            
-            # sample_weight, estimator_weight, estimator_error = self._MultipleSourceTrAdaBoost(
-            #         iboost,
-            #         X, y,
-            #         sample_weight)
-            # # Early termination
-            # if sample_weight is None:
-            #     break
 
-            # self.estimator_weights_[iboost] = estimator_weight
-            # estimator_errors_[iboost] = estimator_error
-
-            # # Stop if error is zero
-            # if estimator_error == 0:
-            #     break
-
-            # sample_weight_sum = np.sum(sample_weight)
-
-            # # Stop if the sum of sample weights has become non-positive
-            # if sample_weight_sum <= 0:
-            #     break
-
-            # if iboost < self.n_estimators - 1:
-            #     # Normalize
-            #     sample_weight /= sample_weight_sum
         # ループが途中で止まった場合、その途中までの結果のみ取り出す
         # 反映されない部分はestimator_errors_[i]>=0.5(=0で止まったときはそのステップまで採用するからこの条件でok)
         self.estimator_weights_ = estimator_weights_[estimator_errors_<0.5]
@@ -196,59 +171,6 @@ class MultipleSourceTrAdaBoost:
         )
 
         return estimator_error_isource, error_vect, estimator
-
-        """
-        if error_max != 0.:
-            error_vect /= error_max
-
-        if self.loss == 'square':
-            error_vect **= 2
-        elif self.loss == 'exponential':
-            error_vect = 1. - np.exp(- error_vect)
-
-        # Calculate the average loss
-        estimator_error = (sample_weight * error_vect).sum()
-
-        if estimator_error <= 0:
-            # Stop if fit is perfect
-            return sample_weight, 1., 0.
-
-        elif estimator_error >= 0.5:
-            # Discard current estimator only if it isn't the only one
-            if len(self.estimators_) > 1:
-                self.estimators_.pop(-1)
-            return None, None, None
-
-        beta = estimator_error / (1. - estimator_error)
-
-        # avoid overflow of np.log(1. / beta)
-        if beta < 1e-308:
-            beta = 1e-308
-        estimator_weight = self.learning_rate * np.log(1. / beta)
-
-        # Boost weight using AdaBoost.R2 alg except the weight of the source data
-        # the weight of the source data are remained
-        source_weight_sum= np.sum(sample_weight[:-self.sample_size[-1]]) / np.sum(sample_weight)
-        target_weight_sum = np.sum(sample_weight[-self.sample_size[-1]:]) / np.sum(sample_weight)
-
-        if not iboost == self.n_estimators - 1:
-            # targetのsample_weightを更新（当たっていれば重みを小さく、外れていれば重みを大きく）
-            sample_weight[-self.sample_size[-1]:] *= np.power(
-                    beta,
-                    (1. - error_vect[-self.sample_size[-1]:]) * self.learning_rate)
-            # sourceのsample_weight更新（当たっていれば重みを大きく、外れていれば重みを小さく）
-            sample_weight[:-self.sample_size[-1]] *= np.power(
-                    beta,
-                    -(1. - error_vect[:-self.sample_size[-1]]) * self.learning_rate)
-            # make the sum weight of the source data not changing
-            source_weight_sum_new = np.sum(sample_weight[:-self.sample_size[-1]]) / np.sum(sample_weight)
-            target_weight_sum_new = np.sum(sample_weight[-self.sample_size[-1]:]) / np.sum(sample_weight)
-            if source_weight_sum_new != 0. and target_weight_sum_new != 0.:
-                sample_weight[:-self.sample_size[-1]] = sample_weight[:-self.sample_size[-1]]*source_weight_sum/source_weight_sum_new
-                sample_weight[-self.sample_size[-1]:] = sample_weight[-self.sample_size[-1]:]*target_weight_sum/target_weight_sum_new
-
-        return sample_weight, estimator_weight, estimator_error
-        """
 
 
     def predict(self, X):
