@@ -92,7 +92,8 @@ def experiment_main(count, idx_target, experiment_result):
         regr_1 = TwoStageTrAdaBoostR2(DecisionTreeRegressor(max_depth=6),
                             n_estimators = n_estimators, sample_size = sample_size, 
                             steps = steps, fold = fold, 
-                            random_state = random_state)
+                            random_state = random_state,
+                            binary_search_step=1e-30)
         regr_1.fit(X, Y)
         y_pred1 = regr_1.predict(target_X_test)
 
