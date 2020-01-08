@@ -18,14 +18,12 @@ class MultipleSourceTrAdaBoost:
                  sample_size = None,
                  n_estimators = 50,
                  learning_rate = 1.,
-                 loss = 'linear',
                  random_state = np.random.mtrand._rand):
         self.base_estimator = base_estimator
         self.sample_size = sample_size
         self.n_sources = len(self.sample_size)-1
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
-        self.loss = loss
         self.random_state = random_state
 
 
@@ -102,7 +100,6 @@ class MultipleSourceTrAdaBoost:
                 if len(self.estimators_) > 1:
                     self.estimators_.pop(-1)
                     # estimator_errors_[iboost] = -1
-                    self.estimator_errors_ = estimator_errors_[estimator_errors_<0.5]
                 break
 
 
