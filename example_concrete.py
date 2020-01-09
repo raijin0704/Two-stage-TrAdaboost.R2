@@ -13,6 +13,7 @@ from sklearn.metrics import mean_squared_error
 from TwoStageTrAdaBoostR2 import TwoStageTrAdaBoostR2 # 既存研究
 from SimpleTrAdaBoostR2 import SimpleTrAdaBoostR2 # シンプルな改良版(分類問題と同じアルゴリズム)
 from SimpleTrAdaBoostRT import SimpleTrAdaBoostRT # .RTを用いた改良版
+from MultipleSourceTrAdaBoostR2 import MultipleSourceTrAdaBoostR2 # 複数ソースに対応したSimpleTrAdaBoostR2
 
 
 # 前処理
@@ -31,7 +32,7 @@ random_state = np.random.RandomState(1)
 
 
 def make_dataset():
-    df = pd.read_csv("./dataset/concrete_compressive/Concrete_Data.csv")
+    df = pd.read_csv("./dataset/Concrete_Data.csv")
     low, medium, high = _split_dataset(df, split_feature)
 
     return df, low, medium, high
@@ -113,6 +114,14 @@ def experiment_main(count, idx_target, experiment_result):
         regr_3.fit(X, Y)
         y_pred3 = regr_3.predict(target_X_test)
 
+
+        # MultipleSourceTrAdaBoost.R2
+        regr_4 = MultipleSourceTrAdaBoostR2(DecisionTreeRegressor(max_depth=6),
+                            n_estimators = n_estimators, sample_size = sample_size, 
+                            random_state = random_state)
+        regr_4.fit(X, Y)
+        y_pred4 = regr_4.predict(target_X_test)
+
         # 4.3 As comparision, use AdaBoostR2 without transfer learning
         #==============================================================================
         regr_0 = AdaBoostRegressor(DecisionTreeRegressor(max_depth=6),
@@ -124,19 +133,21 @@ def experiment_main(count, idx_target, experiment_result):
         # 4.4 Calculate mse
         mse_twostageboost = mean_squared_error(target_Y_test, y_pred1)   
         mse_simpleboost = mean_squared_error(target_Y_test, y_pred2)
-        mse_simpleboostRT = mean_squared_error(target_Y_test, y_pred3)   
+        mse_simpleboostRT = mean_squared_error(target_Y_test, y_pred3)
+        mse_multipleboost = mean_squared_error(target_Y_test, y_pred4)
         mse_adaboost = mean_squared_error(target_Y_test, y_pred0)
         print("MSE of regular AdaboostR2:", mse_adaboost)
         print("MSE of TwoStageTrAdaboostR2:", mse_twostageboost)
         print("MSE of SimpleTrAdaboostR2:", mse_simpleboost)
         print("MSE of SimpleTrAdaboostRT:", mse_simpleboostRT)
+        print("MSE of multipleTrAdaboostR2:", mse_multipleboost)
         print("--------------------------------")
 
 
         # 結果の保存
         idx_target[count*3+idx] = name_list[idx]
         experiment_result.append([mse_adaboost, mse_twostageboost,
-                                    mse_simpleboost, mse_simpleboostRT])
+                                    mse_simpleboost, mse_simpleboostRT, mse_multipleboost])
 
     return idx_target, experiment_result
 
@@ -152,7 +163,7 @@ if __name__ == "__main__":
         idx_target, experiment_result = experiment_main(count, idx_target, experiment_result)
     
     
-    df_result = pd.DataFrame(experiment_result, columns=["AdaBoost", "Two-StageTrAdaBoost", "SimpleTrAdaBoostR2", "SimpleTrAdaBoostRT"])
+    df_result = pd.DataFrame(experiment_result, columns=["AdaBoost", "Two-StageTrAdaBoost", "SimpleTrAdaBoostR2", "SimpleTrAdaBoostRT", "MultipleTrAdaBoostR2"])
     experiment_n = len(df_result)
     df_result.to_csv("./result/concrete_compressive_mse_n%s.csv" %experiment_n)
 
