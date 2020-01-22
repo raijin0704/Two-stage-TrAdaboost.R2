@@ -123,20 +123,27 @@ def experiment_main(count, idx_target, experiment_result):
         y_pred4 = regr_4.predict(target_X_test)
 
         # 4.3 As comparision, use AdaBoostR2 without transfer learning
-        #==============================================================================
+        # targetのみでAdaBoost
         regr_0 = AdaBoostRegressor(DecisionTreeRegressor(max_depth=6),
                                 n_estimators = n_estimators)
-        #==============================================================================
         regr_0.fit(target_X_train, target_Y_train)
         y_pred0 = regr_0.predict(target_X_test)
+
+        # target/source区別せずにAdaBoost
+        regr_01 = AdaBoostRegressor(DecisionTreeRegressor(max_depth=6),
+                                n_estimators = n_estimators)
+        regr_01.fit(X, Y)
+        y_pred01 = regr_01.predict(target_X_test)
 
         # 4.4 Calculate mse
         mse_twostageboost = mean_squared_error(target_Y_test, y_pred1)   
         mse_simpleboost = mean_squared_error(target_Y_test, y_pred2)
         mse_simpleboostRT = mean_squared_error(target_Y_test, y_pred3)
         mse_multipleboost = mean_squared_error(target_Y_test, y_pred4)
-        mse_adaboost = mean_squared_error(target_Y_test, y_pred0)
-        print("MSE of regular AdaboostR2:", mse_adaboost)
+        mse_targetadaboost = mean_squared_error(target_Y_test, y_pred0)
+        mse_alladaboost = mean_squared_error(target_Y_test, y_pred01)
+        print("MSE of target AdaboostR2:", mse_targetadaboost)
+        print("MSE of all AdaboostR2:", mse_alladaboost)
         print("MSE of TwoStageTrAdaboostR2:", mse_twostageboost)
         print("MSE of SimpleTrAdaboostR2:", mse_simpleboost)
         print("MSE of SimpleTrAdaboostRT:", mse_simpleboostRT)
@@ -146,7 +153,7 @@ def experiment_main(count, idx_target, experiment_result):
 
         # 結果の保存
         idx_target[count*3+idx] = name_list[idx]
-        experiment_result.append([mse_adaboost, mse_twostageboost,
+        experiment_result.append([mse_targetadaboost, mse_alladaboost, mse_twostageboost,
                                     mse_simpleboost, mse_simpleboostRT, mse_multipleboost])
 
     return idx_target, experiment_result
@@ -163,14 +170,14 @@ if __name__ == "__main__":
         idx_target, experiment_result = experiment_main(count, idx_target, experiment_result)
     
     
-    df_result = pd.DataFrame(experiment_result, columns=["AdaBoost", "Two-StageTrAdaBoost", "SimpleTrAdaBoostR2", "SimpleTrAdaBoostRT", "MultipleTrAdaBoostR2"])
+    df_result = pd.DataFrame(experiment_result, columns=["target AdaBoost", "all AdaBoost", "Two-StageTrAdaBoost", "SimpleTrAdaBoostR2", "SimpleTrAdaBoostRT", "MultipleTrAdaBoostR2"])
     experiment_n = len(df_result)
     df_result.to_csv("./result/concrete_compressive_mse_n%s.csv" %experiment_n)
 
     # 実験結果の図
     result_mean = df_result.mean(axis=0)
     result_std = df_result.std(axis=0)
-    plt.figure(figsize=(10,5))
+    plt.figure(figsize=(12,5))
     plt.bar(np.arange(len(result_mean)), result_mean, yerr=result_std, tick_label=result_mean.index, ecolor="black", width=0.5)
     plt.title("Concrete Compressive MSE  n=%s" %len(df_result))
     plt.savefig("./result/concrete_compressive_mse_compare_n%s.png" %experiment_n)
@@ -181,7 +188,7 @@ if __name__ == "__main__":
         df_target = df_result[df_result["target"]==target_group]
         result_mean = df_target.mean(axis=0)
         result_std = df_target.std(axis=0)
-        plt.figure(figsize=(10,5))
+        plt.figure(figsize=(12,5))
         plt.bar(np.arange(len(result_mean)), result_mean, yerr=result_std, tick_label=result_mean.index, ecolor="black", width=0.5)
         plt.title("Concrete Compressive MSE (%s)  n=%s" %(target_group, len(df_target)))
         experiment_n = len(df_target)
