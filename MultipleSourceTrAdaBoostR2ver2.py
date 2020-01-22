@@ -23,14 +23,13 @@ class MultipleSourceTrAdaBoostR2:
                  n_estimators = 50,
                  learning_rate = 1.,
                  loss = 'linear',
-                 domain_label = "domain"
+                 target_label = "target",
                  random_state = np.random.mtrand._rand):
         self.base_estimator = base_estimator
-        self.n_sources = len(self.sample_size)-1
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
         self.loss = loss
-        self.domain_label = domain_label
+        self.target_label = target_label
         self.random_state = random_state
 
 
@@ -54,8 +53,11 @@ class MultipleSourceTrAdaBoostR2:
                       "weighted number of samples.")
 
         # domainごとのサンプルサイズの取得とデータのソート
-        X = X_ori[np.argsort(X_ori[:,-1])]
-        X.
+        X_source = X_ori[X_ori[:,-1]!=self.target_label]
+        X_target = X_ori[X_ori[:,-1]==self.target_label]
+        X_source_sorted = X_source[np.argsort(X_source[:,-1])]
+        X = np.concatenate([X_source_sorted, X_target])
+        print(X)
 
 
         if self.sample_size is None:
